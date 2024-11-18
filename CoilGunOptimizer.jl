@@ -1,32 +1,5 @@
-#binary search for index of lowest number exceeding some position
-function find_from_sol(sol, target) 
-    start = 1 
-    fin = length(sol) 
-    while(start <= fin)
-        mid = (start + fin) ÷ 2 
-        if (sol[mid][1][2] <= target)
-            start = mid + 1 
-        else
-            fin = mid - 1
-        end
-    end
-    return start;
-end
-
-#binary search for index of lowest number exceeding some position
-function find_from_loc(loc, target)
-    start = 1 
-    fin = length(loc) 
-    while(start <= fin)
-        mid = (start + fin) ÷ 2 
-        if (loc[mid] <= target)
-            start = mid + 1 
-        else
-            fin = mid - 1
-        end
-    end
-    return start;
-end
+using SNOW
+using OrdinaryDiffEq
 
 #returns the voltage as if it was on until it was turned off at a variable time
 function voltage(max_v, cutoff_time, curr_time)
@@ -54,14 +27,6 @@ function single_stage(du, u, p, t)
     du[3] = (K_e/m)*u[1] + mu_k*g
 end
 
-p = [1.0, 1.5, 0.1, 0.01, 0.03, 1500.0, 0.0]
-t = (0.0, 2.0)
-u0 = [0.0, -0.1, 0.0]
-
-prob = ODEProblem(single_stage, u0, t, p)
-sol = solve(prob)
-plot(sol)
-
 #objective function to optimize coil gun
 #let's vary: cutoff_time
 function ob!(g, x)
@@ -70,27 +35,19 @@ function ob!(g, x)
     t = (0.0, 2.0) #time
     u0 = [0.0, -0.1, 0.0] #initial conditions
     
-    #simulate
-    prob = ODEProblem(single_stage, u0, t, p) #set up the problem
-    sol = solve(prob) #solve the problem
-    solution = [u for (u) in tuples(sol)] #Extract the data into a format we can use more easily
-        
     #objective (velocity when x = pos)
     pos = 0.1
-    indx = find_from_sol(solution, pos) #find the index of the solution where the position of the bullet is just past the determined pos
-    #make a vector of interpolated values for the position
-
-
-
-    #changing the step size here changes the answer more than I think it should
-    t = range(start = sol.t[indx-1], stop = sol.t[indx], step = 0.001) #make a range of the times from sol that bound our desired pos
     
+    #set up end condition for simulation
+    condition(u,t,integrator) = u[2] - 0.1 # Is zero when u[2] = 0.1
+    affect!(integrator) = terminate!(integrator)
+    cb = ContinuousCallback(condition, affect!)
+    #simulate
+    prob = ODEProblem(single_stage, u0, t, p) #set up the problem
+    sol = solve(prob, callback = cb); #solve the problem
 
-    
-    location = [sol(t)[2] for (t) in t] #make a vector of locations corresponding to t
-    second_indx = find_from_loc(location, pos) #find the index of the time where the location is just greater than pos
-    time = t[second_indx] #get what time it was at that index
-    f = -sol(time)[3] #plug that time into sol and retreive the velocity (in effect, get the velocity of the bullet at pos)
+    # get the velocity when the position is pos
+    f = -sol[length(sol)][3]
 
     #constraints
     g[1] = x[1] #the voltage can't be turned off at a negative value nor one larger than 2s
@@ -114,3 +71,5 @@ function optimize_coil_gun()
     println("fstar = ", fopt)
     println("info = ", info)
 end
+
+optimize_coil_gun()
