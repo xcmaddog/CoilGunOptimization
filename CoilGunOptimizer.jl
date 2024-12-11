@@ -329,9 +329,11 @@ end
 #solution = optimize_coil_gun() #This finds the optimal solution
 
 #For some reason on my machine, I can only create one plot per run. so I comment out everything but the one I want
+
 #plot_a_sol(solution) #this plots what the state space for that solution looks like
 
 plot_vary_cutoff()#this plots a what-if we varyied the cutoff time
 
+#these two lines let us plot what would happen if we had a cutoff time at selected_x
 #selected_x = [0.1]
 #plot_a_sol(selected_x)
