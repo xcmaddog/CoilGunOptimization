@@ -448,24 +448,14 @@ function plot_vary_coil_length(cutoff_time, wire_length, barrel_length)
     plot!(display = true)
 end
 
-#println(coil(1,5,0.06,200,16.14 * (1/1000) * (1/12) * (1/2.54)))
-
 
 #this is the code that actually runs
 #solution = optimize_coil_gun() #This finds the optimal solution
 
 #For some reason on my machine, I can only create one plot per run. so I comment out everything but the one I want
 #plot_a_sol(solution) #this plots what the state space for that solution looks like
-#plot_vary_cutoff(solution[2], solution[3], solution[4]) #this plots a what-if we varyied the cutoff time
-#plot_vary_coil_length(solution[1], solution[3], solution[4]) #this plots a what-if we varyied the coil length
-#plot_vary_wire_length(solution[1], solution[2], solution[4])#this plots a what-if we varyied the wire length
 
-plot_vary_cutoff()
+plot_vary_cutoff()#this plots a what-if we varyied the cutoff time
 
-#selected_x = [0.007931643214661072, 0.7201666648281408, 128.1374433972916, 0.1]
 #selected_x = [0.1]
 #plot_a_sol(selected_x)
-
-#resistance, inductance = coil(barrel_radius, length_of_coil, wire_radius, length_of_wire, unit_resistance)
-#println(resistance)
-#println(inductance)
