@@ -4,9 +4,6 @@ using Plots
 using Colors
 
 #global variables
-const barrel_radius = 2.662 #cm
-const wire_radius = 0.06438 / 2 #cm
-const unit_resistance = 16.14 * (1/1000) * (1/12) * (1/2.54) #ohms/cm 
 const EMF_constant = 0.1
 const mass = 0.001472 #kg
 const friction_coefficient = 0.28 
@@ -18,8 +15,6 @@ const selected_R = 0.2 #ohms
 const length_of_wire = 800 #cm
 const length_of_coil = 4.5 #cm
 const barrel_length = 0.1 #m
-voltages = []
-recorded_times = []
 
 """
 single_stage(du, u, p, t)
@@ -74,9 +69,10 @@ function get_solution(x)
     cutoff_time = x[1] # s
     coil_length = x[2] #cm
     wire_length = x[3] #cm
-    
-    #calculate the resistance and inductance of the coil
-    resistance, inductance = coil(barrel_radius, coil_length, wire_radius, wire_length, unit_resistance)
+
+    #grab the global variables
+    inductance = selected_L
+    resistance = selected_R
     
     #initialize the parameters (see the values at the top of this file)
     p = [inductance, resistance, EMF_constant, mass, friction_coefficient, max_voltage, 0.0] #put the variables into the vector
