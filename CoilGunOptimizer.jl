@@ -18,55 +18,8 @@ const selected_R = 0.2 #ohms
 const length_of_wire = 800 #cm
 const length_of_coil = 4.5 #cm
 const barrel_length = 0.1 #m
-#const measured_resistance = 0.2 #ohms
-#const measured_inductance = 51e-6 #Henrys
 voltages = []
 recorded_times = []
-
-"""
-coil(min_radius, coil_length, wire_radius, wire_length, unit_resistance)
-This function takes in some of the constraints for building a coil and
-    estimates the resistance (in ohms) and inductance (in mH)
-
-min_radius is the radius of the object the wire is being wrapped around (in cm)
-coil_length is the length of the coiled wire (as opposed to the length of the wire) (in cm)
-wire_radius is the radius of the wire (in cm)
-wire_length is the length of the wire before it is wound into a coil (in cm)
-unit_resistance is the resistance per unit length of the wire (ohms/cm)
-
-this function returns a tuple with resistance(ohms) and inductance (Henrys)
-
-This function is based off of "Multilayer air-core coil" on the wikipedia page on inductors
-This function treats the the coils like helixes where each progressive layer sits in the gap 
-    made by two coils on a lower layer.
-"""
-function coil(min_radius, coil_length, wire_radius, wire_length, unit_resistance)
-    #calculate the resistance
-    resistance = unit_resistance * wire_length
-    #initialize some variables
-    turns = 0 #this is N on wikipedia
-    layers = 0 
-    r_add = 0.0 #this is to help me calculate the average radius
-    wire_left = wire_length #each layer will use up some of the wire
-    layer_turns = round(coil_length / (2*wire_radius)) # we can make this many turns on the first layer
-    layer_radius = min_radius + wire_radius #The radius from the center of the core to the center of the wire
-    layer_length = layer_turns * sqrt((layer_radius^2) + (wire_radius^2)) #how much wire does it take to make the first layer
-    while wire_left >= layer_length && layer_turns > 0 #while we still have enough wire to wind the next layer, do it
-        layers = layers + 1 #I don't think I need this variable
-        r_add = r_add + (layer_radius * layer_turns) #the summation part of an average radius of all the turns
-        turns = turns + layer_turns #add up how many turns we have so far
-        wire_left = wire_left - layer_length #how much wire do we have left after making this layer?
-        layer_radius = layer_radius + (wire_radius*sqrt(3)) #what is the next layer's radius (think eqilateral triangle)
-        layer_turns = layer_turns - 1 #the next layer will have one fewer turns because those turns will be nested inbetween this layer's
-        layer_length = layer_turns * sqrt((layer_radius^2) + (layer_length^2)) #how much wire will the next layer take?
-    end
-    average_radius = r_add / turns #finish calculating the average radius of all the turns
-    depth = (layer_radius - (wire_radius*sqrt(3))) - (min_radius + wire_radius)#go back to the radius of the last layer, and get the depth
-    inductance = ((average_radius^2)*(turns^2)) / ((19*average_radius)+(29*coil_length)+(32*depth)) #calculate the inductance
-    inductance = inductance / (10^6) #convert uH to H
-    return resistance, inductance
-    #return measured_resistance, measured_inductance
-end
 
 """
 single_stage(du, u, p, t)
@@ -95,11 +48,6 @@ function single_stage(du, u, p, t)
     else 
         V_a = -diode_resistance*u[1]
     end
-    
-
-    #println("The voltage is: " * string(V_a))
-    #push!(voltages, V_a)
-    #push!(recorded_times, t)
 
     #this is the juicy part... the EOM (du is the derivative and u is the state vector)
     du[1] = -(R/L_a)*u[1] - (K_e/L_a)*u[3] + (V_a/L_a)
@@ -126,8 +74,6 @@ function get_solution(x)
     cutoff_time = x[1] # s
     coil_length = x[2] #cm
     wire_length = x[3] #cm
-
-    #println(x)
     
     #calculate the resistance and inductance of the coil
     resistance, inductance = coil(barrel_radius, coil_length, wire_radius, wire_length, unit_resistance)
@@ -183,6 +129,8 @@ function get_solution(x)
     end
     cb5 = ContinuousCallback(condition5, affect5!)
 
+    #this would be good code to implement in a real situation, but it works so well that it doesn't give us a 
+        #chance to explain the physics of the system.
     #set up end condition for simulation (end the simulation when the mass exits going backwards)
     #function condition6(u,t,integrator)#the condition is triggered when u[2] == 0 and u[3] is negative
     #    if u[3] < 0
@@ -227,14 +175,19 @@ function ob!(g, x)
     f = -sol[length(sol)][3] #this is negative because we are minimizing in the optimizer
 
     #constraints
-    #g[1] = x[1] #the voltage can't be turned off at a negative value nor one larger than 1s
-    g[1] = 0.5
+    g[1] = 0.5 #this is a filler constraint. It is always satisfied
 
     #return
     return f
 end
 
+"""
+function ob_big!(g,x)
+This function lets me quickly simplify the much more complicated ob! function. 
+    It depends on the global variables to fill in the rest of the values that ob! requires.
 
+It would be nice to get rid of this function and be able to optimize for the length of the coil and the length of the wire too.
+"""
 function ob_big!(g,x)
     xPrime = [x[1] length_of_coil length_of_wire barrel_length]
     return ob!(g, xPrime)
@@ -253,14 +206,7 @@ To read the results, look for "xstar = _____" This is the solution the optimizer
 """
 function optimize_coil_gun()
     max_wire_length = 200 #cm
-    #barrel_length = 0.1 #m -- we can change this variable to match the length of the actual barrel
-    shortest_coil = 0.1  #cm -- here I am trying to make it so that we have at least one turn
-    longest_coil = (2*0.06438*max_wire_length) / (sqrt((1.5^2)+(0.06438^2))) #the case where we use all of the wire on a single layer
-    #x0 = [0.0, 0.5, 100, barrel_length]  # starting point
-    #lx = [0.0, shortest_coil, 5, barrel_length]  # lower bounds on x
-    #ux = [1.0, longest_coil, 200, barrel_length]  # upper bounds on x
 
-    #I commented out the above 3 lines of code so that I could fix the coil lengths and wire lengths
     x0 = [0.01] #starting cutoff time
     lx = [0.0] #min cutoff time
     ux = [0.2] #max cutoff time
@@ -269,12 +215,8 @@ function optimize_coil_gun()
     lg = [0.0]  # lower bounds on g
     ug = [1.0]  # upper bounds on g
 
-    #ng = 0  # number of constraints
-    #lg = []  # lower bounds on g
-    #ug = []  # upper bounds on g
     options = Options(solver=IPOPT())  # choosing IPOPT solver
 
-    #xopt, fopt, info = minimize(ob!, x0, ng, lx, ux, lg, ug, options)
     xopt, fopt, info = minimize(ob_big!, x0, ng, lx, ux, lg, ug, options)
 
     println("xstar = ", xopt)
@@ -290,24 +232,11 @@ This function lets you plot the results of a simulation
 
 solution is a vector of design variables:
     solution[1] = cutoff time
-    solution[2] = length of the coil
-    solution[3] = length of wire
-    solution[4] = end of barrel (this one is constrained to only be the one value)
 """
 function plot_a_sol(solution)
     cut_time = solution[1]
 
-    #calculate the resistance and inductance of the coil
-    #resistance, inductance = coil(barrel_radius, solution[2], wire_radius, solution[3], unit_resistance)
-
-    #println("Resistance: " * string(resistance) * " Ohms")
-    #println("Inductance: " * string(inductance) * " Henrys")
-
     sol = get_solution([cut_time, length_of_coil, length_of_wire, barrel_length])
-
-    #plot(sol, label = ["current (A)" "position(m)" "velocity(m/s)"])
-    #scatter!(recorded_times, voltages)
-    #plot!(display = true)
 
     #get time range
     tspan = range(start = 0, stop = sol.t[length(sol.t)], step = 0.0001)
@@ -354,9 +283,10 @@ function plot_a_sol(solution)
 end
 
 """
-plot_vary_cutoff(coil_length, wire_length, barrel_length)
-This function takes the variables that define a coil (and a barrel length) and plots
+plot_vary_cutoff(;coil_length = length_of_coil, wire_length = length_of_wire, barrel_length = barrel_length)
+This function optionally takes the variables that define a coil (and a barrel length) and plots
     the end velocities of the mass for a range of different cutoff times.
+If variables aren't provided, it uses the global variables defined at the top of this file.
 """
 function plot_vary_cutoff(;coil_length = length_of_coil, wire_length = length_of_wire, barrel_length = barrel_length)
     #make a vector of vectors with different cutoff times
@@ -391,60 +321,10 @@ function plot_vary_cutoff(;coil_length = length_of_coil, wire_length = length_of
             linewidth=2,
             color = RGB(0.2, 0.468, 0.2),
             ytickfontcolor = RGB(0.2, 0.468, 0.2))
-    #plot(times, velocities, xlabel = "cutoff time", label = "end velocities")
-    #plot!(times, currents, label = "end current")
-    #plot!(times, positions, label = "end position")
     
     #save plot
-    savefig("C:\\Users\\xcmad\\Documents\\Homework\\ME EN 335\\CoilGunProject\\varying_cuttof_time_show_position")
+    #savefig("C:\\Users\\xcmad\\Documents\\Homework\\ME EN 335\\CoilGunProject\\varying_cuttof_time_show_position")
 
-    plot!(display = true)
-end
-
-"""
-plot_vary_wire_length(cutoff_time, coil_length, barrel_length)
-This function takes the cutoff time and coil length (and a barrel length) and plots
-    the end velocities of the mass for a range of different wire lengths.
-"""
-function plot_vary_wire_length(cutoff_time, coil_length, barrel_length)
-    #make a vector of vectors with different cutoff times
-    inputs = []
-    lengths = range(start = 10, stop = 200, step = 1)
-    for l in lengths
-        push!(inputs, [cutoff_time, coil_length, l, barrel_length])
-    end
-    #run a simulation for each cutofftime and store the end velocities
-    velocities = []
-    for i in inputs
-        sol = get_solution(i)
-        push!(velocities, sol[length(sol)][3])
-    end
-    plot(lengths, velocities, xlabel = "wire length(cm)", ylabel = "velocity(m/s)")
-    plot!(display = true)
-end
-
-"""
-plot_vary_coil_length(cutoff_time, coil_length, barrel_length)
-This function takes the cutoff time and coil length (and a barrel length) and plots
-    the end velocities of the mass for a range of different wire lengths.
-"""
-function plot_vary_coil_length(cutoff_time, wire_length, barrel_length)
-    #make a vector of vectors with different cutoff times
-    inputs = []
-    barrel_length = 0.1 #m -- we can change this variable to match the length of the actual barrel
-    shortest_coil = 0.08 #cm -- here I am trying to make it so that we have at least one turn
-    longest_coil = (2*0.06438*wire_length) / (sqrt((1.5^2)+(0.06438^2))) #the case where we use all of the wire on a single layer
-    lengths = range(start = shortest_coil, stop = longest_coil, step = 0.1)
-    for l in lengths
-        push!(inputs, [cutoff_time, l, wire_length, barrel_length])
-    end
-    #run a simulation for each cutofftime and store the end velocities
-    velocities = []
-    for i in inputs
-        sol = get_solution(i)
-        push!(velocities, sol[length(sol)][3])
-    end
-    plot(lengths, velocities, xlabel = "coil length(cm)", ylabel = "velocity(m/s)")
     plot!(display = true)
 end
 
